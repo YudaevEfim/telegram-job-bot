@@ -11,6 +11,7 @@ bot = telebot.TeleBot(TOKEN)
 saved_jobs = []
 search_state = {}
 
+
 def get_saved_jobs_text():
     if not saved_jobs:
         return "Список вакансий пока пуст."
@@ -20,27 +21,21 @@ def get_saved_jobs_text():
         response += f"{i}. {job}\n"
     return response
 
-def get_search_results_text(keyword, radius_choice):
-    radius_text = ""
-    if radius_choice == "1":
-        radius_text = "קצרין + 50 ק\"מ"
-    elif radius_choice == "2":
-        radius_text = "קצרין + до 1 часа езды"
-    else:
-        radius_text = "краткий поиск от קצרין"
 
+def get_search_results_text(keyword, distance_km):
     return (
         "Поисковый запрос готов.\n\n"
         f"Что искать: {keyword}\n"
-        f"Радиус: {radius_text}\n\n"
+        f"Расстояние от קצרין: до {distance_km} км\n\n"
         "Ищи по этим вариантам:\n\n"
         f"AllJobs: {keyword} קצרין\n"
         f"דרושים: {keyword} קצרין\n"
         f"JobMaster: {keyword} קצרין\n"
         f"Facebook: {keyword} קצרין\n\n"
-        "Это первая версия поиска. "
-        "Следующим шагом можно сделать, чтобы бот сам находил и присылал вакансии."
+        "Это пока диалоговая версия поиска.\n"
+        "Следующим шагом можно сделать, чтобы бот сам находил вакансии и фильтровал их по расстоянию."
     )
+
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -51,20 +46,23 @@ def start(message):
         "вакансии\n"
         "список\n"
         "добавить https://example.com/job\n"
-        "поиск\n\n"
+        "найди\n\n"
         "Также работают команды:\n"
         "/jobs\n"
         "/list\n"
         "/add https://example.com/job"
     )
 
+
 @bot.message_handler(commands=['jobs'])
 def jobs_command(message):
     bot.send_message(message.chat.id, "Пока вакансий нет. Скоро начну искать.")
 
+
 @bot.message_handler(commands=['list'])
 def list_command(message):
     bot.send_message(message.chat.id, get_saved_jobs_text())
+
 
 @bot.message_handler(commands=['add'])
 def add_command(message):
@@ -85,6 +83,7 @@ def add_command(message):
         message.chat.id,
         f"Вакансия сохранена:\n{link}"
     )
+
 
 @bot.message_handler(func=lambda message: message.text is not None)
 def handle_text(message):
@@ -117,11 +116,11 @@ def handle_text(message):
         )
         return
 
-    if lower_text == "поиск":
+    if lower_text == "найди":
         search_state[chat_id] = {"step": "keyword"}
         bot.send_message(
             chat_id,
-            "Что искать?\n\n"
+            "Какие вакансии искать?\n\n"
             "Например:\n"
             "אחראי משמרת\n"
             "ביטחון\n"
@@ -135,34 +134,41 @@ def handle_text(message):
 
         if current_step == "keyword":
             search_state[chat_id]["keyword"] = text
-            search_state[chat_id]["step"] = "radius"
+            search_state[chat_id]["step"] = "distance"
 
             bot.send_message(
                 chat_id,
-                "Выбери радиус поиска:\n"
-                "1 - קצרין + 50 ק\"מ\n"
-                "2 - קצרין + до 1 часа езды\n\n"
-                "Пришли просто цифру: 1 или 2"
+                "Какое расстояние от קצרין искать?\n\n"
+                "Напиши только число в километрах.\n"
+                "Например: 30, 50, 70"
             )
             return
 
-        if current_step == "radius":
-            if text not in ["1", "2"]:
+        if current_step == "distance":
+            if not text.isdigit():
                 bot.send_message(
                     chat_id,
-                    "Пришли только:\n"
-                    "1 - קצרין + 50 ק\"מ\n"
-                    "или\n"
-                    "2 - קצרין + до 1 часа езды"
+                    "Напиши только число.\n"
+                    "Например: 30 или 50"
+                )
+                return
+
+            distance_km = int(text)
+
+            if distance_km <= 0:
+                bot.send_message(
+                    chat_id,
+                    "Расстояние должно быть больше 0."
                 )
                 return
 
             keyword = search_state[chat_id]["keyword"]
-            result_text = get_search_results_text(keyword, text)
+            result_text = get_search_results_text(keyword, distance_km)
 
             del search_state[chat_id]
             bot.send_message(chat_id, result_text)
             return
+
 
 bot.remove_webhook()
 bot.infinity_polling(skip_pending=True)
