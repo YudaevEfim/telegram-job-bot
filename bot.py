@@ -13,4 +13,5 @@ def start(message):
 def jobs(message):
     bot.send_message(message.chat.id, "Пока вакансий нет. Скоро начну искать.")
 
-bot.infinity_polling()
+bot.remove_webhook()
+bot.infinity_polling(skip_pending=True)
