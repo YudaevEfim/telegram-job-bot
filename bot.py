@@ -15,18 +15,34 @@ def start(message):
     bot.send_message(
         message.chat.id,
         "Привет, Ефим. Я твой бот для поиска работы.\n\n"
-        "Команды:\n"
-        "/jobs - статус\n"
-        "/add <ссылка> - добавить вакансию\n"
-        "/list - показать сохранённые вакансии"
+        "Можно писать так:\n"
+        "вакансии\n"
+        "список\n"
+        "добавить https://example.com/job\n\n"
+        "Также работают команды:\n"
+        "/jobs\n"
+        "/list\n"
+        "/add https://example.com/job"
     )
 
 @bot.message_handler(commands=['jobs'])
-def jobs(message):
+def jobs_command(message):
     bot.send_message(message.chat.id, "Пока вакансий нет. Скоро начну искать.")
 
+@bot.message_handler(commands=['list'])
+def list_command(message):
+    if not saved_jobs:
+        bot.send_message(message.chat.id, "Список вакансий пока пуст.")
+        return
+
+    response = "Сохранённые вакансии:\n\n"
+    for i, job in enumerate(saved_jobs, start=1):
+        response += f"{i}. {job}\n"
+
+    bot.send_message(message.chat.id, response)
+
 @bot.message_handler(commands=['add'])
-def add_job(message):
+def add_command(message):
     text = message.text.strip()
     parts = text.split(maxsplit=1)
 
@@ -45,17 +61,43 @@ def add_job(message):
         f"Вакансия сохранена:\n{link}"
     )
 
-@bot.message_handler(commands=['list'])
-def list_jobs(message):
-    if not saved_jobs:
-        bot.send_message(message.chat.id, "Список вакансий пока пуст.")
+@bot.message_handler(func=lambda message: message.text is not None)
+def handle_russian_commands(message):
+    text = message.text.strip()
+    lower_text = text.lower()
+
+    if lower_text == "вакансии":
+        bot.send_message(message.chat.id, "Пока вакансий нет. Скоро начну искать.")
         return
 
-    response = "Сохранённые вакансии:\n\n"
-    for i, job in enumerate(saved_jobs, start=1):
-        response += f"{i}. {job}\n"
+    if lower_text == "список":
+        if not saved_jobs:
+            bot.send_message(message.chat.id, "Список вакансий пока пуст.")
+            return
 
-    bot.send_message(message.chat.id, response)
+        response = "Сохранённые вакансии:\n\n"
+        for i, job in enumerate(saved_jobs, start=1):
+            response += f"{i}. {job}\n"
+
+        bot.send_message(message.chat.id, response)
+        return
+
+    if lower_text.startswith("добавить "):
+        link = text[9:].strip()
+
+        if not link:
+            bot.send_message(
+                message.chat.id,
+                "Пришли так:\nдобавить https://example.com/job"
+            )
+            return
+
+        saved_jobs.append(link)
+        bot.send_message(
+            message.chat.id,
+            f"Вакансия сохранена:\n{link}"
+        )
+        return
 
 bot.remove_webhook()
 bot.infinity_polling(skip_pending=True)
